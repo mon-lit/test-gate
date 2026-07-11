@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ginie Audit Gate — Interactive Demo</title>
+<style>
+  :root {
+    --bg: #0a0a0a;
+    --surface: #111111;
+    --surface2: #191919;
+    --border: #2a2a2a;
+    --border2: #383838;
+    --text: #e8e8e4;
+    --muted: #888882;
+    --green: #4ade80;
+    --green-dim: #166534;
+    --amber: #fbbf24;
+    --amber-dim: #78350f;
+    --red: #f87171;
+    --red-dim: #7f1d1d;
+    --blue: #60a5fa;
+    --blue-dim: #1e3a5f;
+    --radius: 8px;
+    --mono: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 15px; line-height: 1.6; min-height: 100vh; }
+
+  header { border-bottom: 1px solid var(--border); padding: 18px 32px; display: flex; align-items: center; gap: 12px; }
+  .logo { width: 28px; height: 28px; background: var(--green); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; color: #000; flex-shrink: 0; }
+  .logo-text { font-size: 18px; font-weight: 600; letter-spacing: -0.02em; }
+  .badge { margin-left: auto; font-size: 11px; border: 1px solid var(--red); color: var(--red); border-radius: 20px; padding: 3px 10px; letter-spacing: 0.05em; }
+
+  main { max-width: 860px; margin: 0 auto; padding: 48px 32px 80px; }
+
+  .intro { margin-bottom: 48px; }
+  .intro h1 { font-size: 28px; font-weight: 600; letter-spacing: -0.03em; line-height: 1.25; margin-bottom: 12px; }
+  .intro h1 span { color: var(--red); }
+  .intro p { color: var(--muted); max-width: 620px; }
+
+  /* Audit simulation */
+  .sim-wrap { background: var(--surface); border: 1px solid var(--border2); border-radius: var(--radius); padding: 24px; margin-bottom: 32px; }
+  .sim-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 16px; }
+  .run-btn { background: var(--green); color: #000; font-size: 14px; font-weight: 600; border: none; border-radius: 6px; padding: 10px 24px; cursor: pointer; transition: opacity 0.15s; margin-bottom: 24px; }
+  .run-btn:hover { opacity: 0.88; }
+  .run-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  /* Audit findings */
+  .findings-wrap { margin-bottom: 24px; }
+  .finding-item { border: 1px solid var(--border); border-radius: 6px; margin-bottom: 8px; overflow: hidden; opacity: 0; transform: translateY(6px); transition: all 0.3s; }
+  .finding-item.visible { opacity: 1; transform: translateY(0); }
+  .finding-header { display: flex; align-items: center; gap: 12px; padding: 12px 16px; cursor: pointer; }
+  .sev { font-size: 11px; font-weight: 700; border-radius: 4px; padding: 2px 8px; letter-spacing: 0.05em; flex-shrink: 0; }
+  .sev-high { background: var(--red-dim); color: var(--red); }
+  .sev-med  { background: #3d2000; color: var(--amber); }
+  .sev-low  { background: #1a2a1a; color: #86efac; }
+  .sev-info { background: var(--blue-dim); color: var(--blue); }
+  .finding-title { font-size: 13px; font-weight: 500; flex: 1; }
+  .finding-code { font-size: 11px; color: var(--muted); font-family: var(--mono); }
+  .finding-body { background: var(--surface2); padding: 12px 16px; font-size: 13px; color: var(--muted); line-height: 1.6; display: none; border-top: 1px solid var(--border); }
+  .finding-body.open { display: block; }
+  .fix { color: var(--blue); margin-top: 6px; font-size: 12px; }
+
+  /* Gate decision */
+  .gate-wrap { opacity: 0; transition: opacity 0.4s; }
+  .gate-wrap.visible { opacity: 1; }
+  .gate-box { border-radius: var(--radius); padding: 20px 24px; margin-bottom: 16px; display: flex; align-items: flex-start; gap: 16px; }
+  .gate-box.blocked { background: #1a0d0d; border: 1px solid var(--red); }
+  .gate-box.allowed { background: #0d1a0d; border: 1px solid var(--green-dim); }
+  .gate-box.warn    { background: #1f1608; border: 1px solid var(--amber); }
+  .gate-icon { font-size: 24px; flex-shrink: 0; padding-top: 2px; }
+  .gate-title { font-size: 15px; font-weight: 600; margin-bottom: 6px; }
+  .gate-box.blocked .gate-title { color: var(--red); }
+  .gate-box.allowed .gate-title { color: var(--green); }
+  .gate-box.warn    .gate-title { color: var(--amber); }
+  .gate-desc { font-size: 13px; color: var(--muted); line-height: 1.6; }
+  .gate-desc code { background: var(--surface2); border-radius: 4px; padding: 2px 6px; font-family: var(--mono); font-size: 12px; }
+
+  /* Score bar */
+  .scores { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 32px; opacity: 0; transition: opacity 0.4s; }
+  .scores.visible { opacity: 1; }
+  .score-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; text-align: center; }
+  .score-val { font-size: 32px; font-weight: 600; margin-bottom: 4px; }
+  .score-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+  .score-red { color: var(--red); }
+  .score-amber { color: var(--amber); }
+  .score-green { color: var(--green); }
+
+  /* Log */
+  .log-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; font-family: var(--mono); font-size: 12px; line-height: 1.7; max-height: 200px; overflow-y: auto; margin-bottom: 32px; }
+  .log-empty { color: var(--muted); font-style: italic; }
+  .log-line { display: flex; gap: 12px; }
+  .log-ts { color: var(--muted); flex-shrink: 0; }
+  .log-ok   { color: var(--green); }
+  .log-warn { color: var(--amber); font-weight: 600; }
+  .log-err  { color: var(--red); }
+  .log-info { color: var(--blue); }
+
+  /* Explainer */
+  .explainer { border-top: 1px solid var(--border); padding-top: 36px; }
+  .explainer h2 { font-size: 18px; font-weight: 600; letter-spacing: -0.02em; margin-bottom: 20px; }
+  .finding-list { display: flex; flex-direction: column; gap: 12px; }
+  .exp-finding { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 20px; display: flex; gap: 14px; }
+  .exp-num { color: var(--amber); font-weight: 700; font-size: 20px; line-height: 1; padding-top: 2px; flex-shrink: 0; }
+  .exp-finding h4 { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+  .exp-finding p { font-size: 13px; color: var(--muted); line-height: 1.6; }
+
+  @media (max-width: 600px) {
+    main { padding: 32px 16px 60px; }
+    .scores { grid-template-columns: repeat(3,1fr); }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">G</div>
+  <span class="logo-text">Canton.Ginie</span>
+  <span class="badge">AUDIT GATE DEMO</span>
+</header>
+
+<main>
+  <div class="intro">
+    <h1>The audit gate that <span>never blocks</span> anything</h1>
+    <p>Ginie runs a 5-gate security audit before every deployment. It correctly identifies HIGH severity issues. Then deploys anyway. This demo shows exactly what that looks like in practice.</p>
+  </div>
+
+  <div class="sim-wrap">
+    <div class="sim-label">Simulate an escrow deployment audit</div>
+    <button class="run-btn" id="run-btn" onclick="runAudit()">Run audit simulation</button>
+
+    <!-- Findings -->
+    <div class="findings-wrap" id="findings-wrap"></div>
+
+    <!-- Gate decision -->
+    <div class="gate-wrap" id="gate-wrap">
+      <div class="gate-box warn">
+        <div class="gate-icon">⚠</div>
+        <div>
+          <div class="gate-title">8 HIGH severity findings detected</div>
+          <div class="gate-desc">The audit layer correctly identified that buyer and seller are observer-only on all deal templates — a real authorization flaw. On MainNet, this would be a blocking issue.<br><br>
+          But this is sandbox. So:<br><br>
+          <code>Sandbox policy: deploy proceeds despite audit findings. Review the audit report before MainNet.</code></div>
+        </div>
+      </div>
+      <div class="gate-box allowed">
+        <div class="gate-icon">✓</div>
+        <div>
+          <div class="gate-title">Contract deployed successfully</div>
+          <div class="gate-desc">The contract is now live on the Canton ledger. The HIGH findings are logged. The audit ran. Nothing was blocked. The gate is informational only — users are not told this upfront.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scores -->
+  <div class="scores" id="scores">
+    <div class="score-card">
+      <div class="score-val score-red">0</div>
+      <div class="score-label">Security</div>
+    </div>
+    <div class="score-card">
+      <div class="score-val score-amber">95</div>
+      <div class="score-label">Compliance</div>
+    </div>
+    <div class="score-card">
+      <div class="score-val score-amber">38</div>
+      <div class="score-label">Enterprise</div>
+    </div>
+  </div>
+
+  <!-- Log -->
+  <div class="log-wrap" id="log">
+    <div class="log-empty">Run the simulation to see the audit log…</div>
+  </div>
+
+  <!-- Explainer -->
+  <div class="explainer">
+    <h2>Why this matters</h2>
+    <div class="finding-list">
+      <div class="exp-finding">
+        <div class="exp-num">1</div>
+        <div>
+          <h4>Users assume HIGH means blocked</h4>
+          <p>Every security tool users have ever encountered treats HIGH severity as a hard stop. Ginie's audit looks identical to those tools but behaves differently. The assumption is never corrected in the UI.</p>
+        </div>
+      </div>
+      <div class="exp-finding">
+        <div class="exp-num">2</div>
+        <div>
+          <h4>The audit is correct — the policy is silent</h4>
+          <p>The findings themselves are accurate. Buyer and seller as observer-only on a deal contract is a real flaw. The problem isn't the audit — it's that "sandbox policy allows deploy" is buried in the log, not surfaced as a banner.</p>
+        </div>
+      </div>
+      <div class="exp-finding">
+        <div class="exp-num">3</div>
+        <div>
+          <h4>MainNet vs sandbox distinction is invisible</h4>
+          <p>Nothing in the main deployment UI tells users that audit behavior differs between sandbox and MainNet. A user who tests on sandbox and sees HIGH findings deploy might incorrectly assume the same will happen on MainNet.</p>
+        </div>
+      </div>
+      <div class="exp-finding">
+        <div class="exp-num">4</div>
+        <div>
+          <h4>Proposed fix</h4>
+          <p>Add a persistent banner on all sandbox deployments: "⚠ Sandbox mode — audit findings do not block deployment. All HIGH and CRITICAL findings will block on MainNet." One sentence closes the gap.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+const FINDINGS = [
+  { sev: 'HIGH', sevClass: 'sev-high', title: 'Counterparty buyer is observer-only on Escrow', code: 'DSV-025', body: 'Template Escrow declares buyer as an observer but not a signatory. Every party that is economically committed MUST be a signatory on a counterparty agreement — otherwise the other party can unilaterally exercise choices that mutate economic terms with no consent path for buyer.', fix: 'Fix: Change signatory to include buyer.' },
+  { sev: 'HIGH', sevClass: 'sev-high', title: 'Counterparty seller is observer-only on Escrow', code: 'DSV-025', body: 'Template Escrow declares seller as an observer but not a signatory. Seller has no authorization path on the contract that governs their economic obligation.', fix: 'Fix: Add seller to signatory list.' },
+  { sev: 'HIGH', sevClass: 'sev-high', title: 'Counterparty buyer is observer-only on ConfirmedEscrow', code: 'DSV-025', body: 'Outcome template ConfirmedEscrow records the release of funds to seller, yet buyer — the party who deposited funds — has no signatory role on this record.', fix: 'Fix: Add buyer as signatory on ConfirmedEscrow.' },
+  { sev: 'HIGH', sevClass: 'sev-high', title: 'Counterparty seller is observer-only on ConfirmedEscrow', code: 'DSV-025', body: 'ConfirmedEscrow records that seller received funds. Seller should be a signatory to authorize this outcome record.', fix: 'Fix: Add seller as signatory on ConfirmedEscrow.' },
+  { sev: 'HIGH', sevClass: 'sev-high', title: 'Counterparty buyer is observer-only on RefundedEscrow', code: 'DSV-025', body: 'RefundedEscrow records that funds were returned to buyer. Buyer should authorize this record as signatory.', fix: 'Fix: Add buyer as signatory on RefundedEscrow.' },
+  { sev: 'HIGH', sevClass: 'sev-high', title: 'Counterparty seller is observer-only on RefundedEscrow', code: 'DSV-025', body: 'RefundedEscrow records a refund outcome that affects seller. Seller must have a signatory role.', fix: 'Fix: Add seller as signatory on RefundedEscrow.' },
+  { sev: 'MEDIUM', sevClass: 'sev-med', title: 'Missing Authorization Check on ReclaimAfterDeadline', code: 'DSV-003', body: 'The ReclaimAfterDeadline choice allows the buyer to reclaim funds without verifying if the arbiter has indeed been silent. Additional checks should confirm the arbiter has not already acted.', fix: 'Fix: Add assertion checking no prior arbiter action exists.' },
+  { sev: 'MEDIUM', sevClass: 'sev-med', title: 'Missing Ensure Clauses on audit templates', code: 'DSV-004', body: 'ConfirmedEscrow and ReclaimedEscrow templates lack comprehensive ensure clauses to validate all fields on creation.', fix: 'Fix: Add ensure clauses validating all required fields.' },
+  { sev: 'LOW', sevClass: 'sev-low', title: 'Hardcoded Party References', code: 'DSV-011', body: 'The contract uses hardcoded party references for arbiter, buyer, and seller. Parameterizing these would enhance flexibility for reuse.', fix: 'Fix: Parameterize party references.' },
+  { sev: 'INFO', sevClass: 'sev-info', title: 'Correct use of Decimal for financial amounts', code: 'DSV-014', body: 'The contract correctly uses Decimal for financial amounts, ensuring precision in financial calculations. This is the recommended approach.', fix: 'Continue using Decimal for financial calculations.' },
+];
+
+const LOGS = [
+  [0,    'info', 'Running security audit & compliance analysis…'],
+  [600,  'info', 'Audit budget: 240s wall-clock'],
+  [1200, 'info', 'Gate 1: checking signatory completeness…'],
+  [2000, 'err',  'Gate 1 FAIL — buyer, seller missing as signatories on 3 templates'],
+  [2400, 'info', 'Gate 2: checking controller authorization…'],
+  [3000, 'ok',   'Gate 2 PASS — all controllers present in signatories'],
+  [3400, 'info', 'Gate 3: checking for unguarded choices…'],
+  [3900, 'warn', 'Gate 3 WARN — ReclaimAfterDeadline lacks arbiter silence check'],
+  [4300, 'info', 'Gate 4: checking for known anti-patterns…'],
+  [4800, 'ok',   'Gate 4 PASS — no anti-patterns detected'],
+  [5200, 'info', 'Gate 5: checking SCU upgrade compatibility…'],
+  [5700, 'warn', 'Gate 5 WARN — enterprise score low (38/100)'],
+  [6200, 'ok',   'Audit complete — Security 0/100, Compliance 95/100, Enterprise 38.0/100'],
+  [6600, 'info', 'Security review: no findings recorded. Sandbox policy allows deploy — fix findings before MainNet.'],
+  [7000, 'warn', 'Sandbox policy: deploy proceeds despite audit findings. Review the audit report before MainNet.'],
+  [7400, 'ok',   'Submitting compiled DAR to Canton ledger…'],
+  [8000, 'ok',   'Contract deployed — 00bdf7bf5ffd93fb1ccc5bf0…'],
+];
+
+let running = false;
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function logLine(type, msg) {
+  const el = document.getElementById('log');
+  const now = new Date();
+  const ts = now.getHours().toString().padStart(2,'0') + ':' +
+             now.getMinutes().toString().padStart(2,'0') + ':' +
+             now.getSeconds().toString().padStart(2,'0');
+  const cls = type === 'ok' ? 'log-ok' : type === 'err' ? 'log-err' : type === 'warn' ? 'log-warn' : 'log-info';
+  const div = document.createElement('div');
+  div.className = 'log-line';
+  div.innerHTML = `<span class="log-ts">${ts}</span><span class="${cls}">${msg}</span>`;
+  el.appendChild(div);
+  el.scrollTop = el.scrollHeight;
+}
+
+function toggleFinding(idx) {
+  const body = document.getElementById('fb-' + idx);
+  if (body) body.classList.toggle('open');
+}
+
+async function runAudit() {
+  if (running) return;
+  running = true;
+  const btn = document.getElementById('run-btn');
+  btn.disabled = true;
+  btn.textContent = 'Running audit…';
+
+  // Reset
+  document.getElementById('log').innerHTML = '';
+  document.getElementById('findings-wrap').innerHTML = '';
+  document.getElementById('gate-wrap').classList.remove('visible');
+  document.getElementById('scores').classList.remove('visible');
+
+  // Show findings one by one
+  for (let i = 0; i < FINDINGS.length; i++) {
+    await sleep(i === 0 ? 600 : 280);
+    const f = FINDINGS[i];
+    const div = document.createElement('div');
+    div.className = 'finding-item';
+    div.id = 'fi-' + i;
+    div.innerHTML = `
+      <div class="finding-header" onclick="toggleFinding(${i})">
+        <span class="sev ${f.sevClass}">${f.sev}</span>
+        <span class="finding-title">${f.title}</span>
+        <span class="finding-code">${f.code}</span>
+      </div>
+      <div class="finding-body" id="fb-${i}">
+        ${f.body}
+        <div class="fix">→ ${f.fix}</div>
+      </div>`;
+    document.getElementById('findings-wrap').appendChild(div);
+    await sleep(30);
+    div.classList.add('visible');
+  }
+
+  await sleep(500);
+
+  // Show gate decision
+  document.getElementById('gate-wrap').classList.add('visible');
+  await sleep(400);
+
+  // Show scores
+  document.getElementById('scores').classList.add('visible');
+  await sleep(300);
+
+  // Run log
+  for (let i = 0; i < LOGS.length; i++) {
+    const delay = i === 0 ? 0 : LOGS[i][0] - LOGS[i-1][0];
+    await sleep(delay * 0.6);
+    logLine(LOGS[i][1], LOGS[i][2]);
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'Run again';
+  running = false;
+}
+</script>
+</body>
+</html>
