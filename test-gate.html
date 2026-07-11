@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ginie Test Coverage Gate — Interactive Demo</title>
+<style>
+  :root {
+    --bg: #0a0a0a;
+    --surface: #111111;
+    --surface2: #191919;
+    --border: #2a2a2a;
+    --border2: #383838;
+    --text: #e8e8e4;
+    --muted: #888882;
+    --green: #4ade80;
+    --green-dim: #166534;
+    --amber: #fbbf24;
+    --amber-dim: #78350f;
+    --red: #f87171;
+    --red-dim: #7f1d1d;
+    --blue: #60a5fa;
+    --blue-dim: #1e3a5f;
+    --radius: 8px;
+    --mono: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 15px; line-height: 1.6; min-height: 100vh; }
+
+  header { border-bottom: 1px solid var(--border); padding: 18px 32px; display: flex; align-items: center; gap: 12px; }
+  .logo { width: 28px; height: 28px; background: var(--green); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; color: #000; flex-shrink: 0; }
+  .logo-text { font-size: 18px; font-weight: 600; letter-spacing: -0.02em; }
+  .badge { margin-left: auto; font-size: 11px; border: 1px solid var(--blue); color: var(--blue); border-radius: 20px; padding: 3px 10px; letter-spacing: 0.05em; }
+
+  main { max-width: 860px; margin: 0 auto; padding: 48px 32px 80px; }
+
+  .intro { margin-bottom: 48px; }
+  .intro h1 { font-size: 28px; font-weight: 600; letter-spacing: -0.03em; line-height: 1.25; margin-bottom: 12px; }
+  .intro h1 span { color: var(--blue); }
+  .intro p { color: var(--muted); max-width: 620px; }
+
+  .run-btn { background: var(--green); color: #000; font-size: 14px; font-weight: 600; border: none; border-radius: 6px; padding: 10px 24px; cursor: pointer; margin-bottom: 28px; transition: opacity 0.15s; }
+  .run-btn:hover { opacity: 0.88; }
+  .run-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  /* Test case list */
+  .test-wrap { background: var(--surface); border: 1px solid var(--border2); border-radius: var(--radius); padding: 20px; margin-bottom: 28px; }
+  .test-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; }
+  .counter { font-size: 13px; }
+  .counter .count { font-weight: 600; }
+  .count.ok { color: var(--green); }
+  .count.fail { color: var(--red); }
+  .test-case { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 6px; margin-bottom: 6px; border: 1px solid var(--border); background: var(--surface2); opacity: 0; transform: translateX(-8px); transition: all 0.3s; font-size: 13px; font-family: var(--mono); }
+  .test-case.visible { opacity: 1; transform: translateX(0); }
+  .test-case.pass { border-color: var(--green-dim); }
+  .test-case.missing { border-color: var(--border); opacity: 0.4; }
+  .test-case.missing.visible { opacity: 0.4; }
+  .tc-icon { font-size: 14px; flex-shrink: 0; width: 18px; text-align: center; }
+  .tc-name { flex: 1; color: var(--muted); }
+  .tc-name.done { color: var(--text); }
+  .tc-status { font-size: 11px; padding: 2px 8px; border-radius: 12px; flex-shrink: 0; }
+  .tc-pass { background: var(--green-dim); color: var(--green); }
+  .tc-missing { background: var(--border); color: var(--muted); }
+
+  /* Coverage bar */
+  .coverage-wrap { margin-bottom: 28px; opacity: 0; transition: opacity 0.4s; }
+  .coverage-wrap.visible { opacity: 1; }
+  .cov-label { font-size: 13px; color: var(--muted); margin-bottom: 8px; display: flex; justify-content: space-between; }
+  .cov-bar { height: 10px; background: var(--border2); border-radius: 5px; overflow: hidden; margin-bottom: 6px; }
+  .cov-fill { height: 100%; background: var(--amber); border-radius: 5px; width: 0; transition: width 1s ease; }
+  .cov-note { font-size: 12px; color: var(--amber); }
+
+  /* Compile fail box -->*/
+  .compile-fail { background: #1a0d0d; border: 1px solid var(--red-dim); border-radius: var(--radius); padding: 16px 20px; margin-bottom: 28px; display: none; }
+  .compile-fail.visible { display: block; }
+  .cf-title { color: var(--red); font-weight: 600; font-size: 14px; margin-bottom: 8px; }
+  .cf-code { font-family: var(--mono); font-size: 12px; color: var(--muted); line-height: 1.7; }
+  .cf-code span { color: var(--red); }
+
+  /* Deploy anyway box -->*/
+  .deploy-anyway { background: #0d1a0d; border: 1px solid var(--green-dim); border-radius: var(--radius); padding: 16px 20px; margin-bottom: 28px; display: none; }
+  .deploy-anyway.visible { display: block; }
+  .da-title { color: var(--green); font-weight: 600; font-size: 14px; margin-bottom: 8px; }
+  .da-note { font-size: 13px; color: var(--muted); line-height: 1.6; }
+  .da-note code { background: var(--surface2); border-radius: 4px; padding: 2px 6px; font-family: var(--mono); font-size: 12px; color: var(--amber); }
+
+  /* Log -->*/
+  .log-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; font-family: var(--mono); font-size: 12px; line-height: 1.7; max-height: 220px; overflow-y: auto; margin-bottom: 36px; }
+  .log-empty { color: var(--muted); font-style: italic; }
+  .log-line { display: flex; gap: 12px; }
+  .log-ts { color: var(--muted); flex-shrink: 0; }
+  .log-ok { color: var(--green); }
+  .log-warn { color: var(--amber); font-weight: 600; }
+  .log-err { color: var(--red); }
+  .log-info { color: var(--blue); }
+
+  /* Explainer -->*/
+  .explainer { border-top: 1px solid var(--border); padding-top: 36px; }
+  .explainer h2 { font-size: 18px; font-weight: 600; margin-bottom: 20px; }
+  .finding-list { display: flex; flex-direction: column; gap: 12px; }
+  .exp-item { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 20px; display: flex; gap: 14px; }
+  .exp-num { color: var(--blue); font-weight: 700; font-size: 20px; line-height: 1; flex-shrink: 0; padding-top: 2px; }
+  .exp-item h4 { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+  .exp-item p { font-size: 13px; color: var(--muted); line-height: 1.6; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">G</div>
+  <span class="logo-text">Canton.Ginie</span>
+  <span class="badge">TEST GATE DEMO</span>
+</header>
+
+<main>
+  <div class="intro">
+    <h1>The test coverage gate that <span>counts to 4 and stops</span></h1>
+    <p>Ginie requires a minimum of 5 <code>submitMustFail</code> test cases before deployment. It generated 4. The tests also failed to compile. Both issues were logged — then ignored. Contract deployed.</p>
+  </div>
+
+  <button class="run-btn" id="run-btn" onclick="runDemo()">Run test pipeline</button>
+
+  <!-- Test cases -->
+  <div class="test-wrap">
+    <div class="test-label">
+      <span>Test scaffold — submitMustFail cases</span>
+      <span class="counter">Generated: <span class="count" id="count">0</span> / Required: <span style="color:var(--text)">5</span></span>
+    </div>
+    <div id="test-list"></div>
+  </div>
+
+  <!-- Coverage bar -->
+  <div class="coverage-wrap" id="cov-wrap">
+    <div class="cov-label">
+      <span>Test coverage</span>
+      <span id="cov-pct">4 / 5 cases</span>
+    </div>
+    <div class="cov-bar"><div class="cov-fill" id="cov-fill"></div></div>
+    <div class="cov-note">⚠ Coverage gate: minimum 5 required — 1 case short</div>
+  </div>
+
+  <!-- Compile fail -->
+  <div class="compile-fail" id="compile-fail">
+    <div class="cf-title">✗ Test scaffold failed to compile</div>
+    <div class="cf-code">
+      ginie-tests/.daml/src/TestMain.daml:47:3:<br>
+      <span>error:</span> Variable not in scope: submitMustFail<br>
+      <span>error:</span> Ambiguous module name 'DA.Assert'<br>
+      Build failed — 2 error(s)
+    </div>
+  </div>
+
+  <!-- Deploy anyway -->
+  <div class="deploy-anyway" id="deploy-anyway">
+    <div class="da-title">✓ Production contract deployed anyway</div>
+    <div class="da-note">
+      Both issues were logged clearly:<br><br>
+      <code>"Test scaffold did not compile (production DAR unaffected)"</code><br>
+      <code>"deploy continues; hand-author the missing cases before MainNet"</code><br><br>
+      The production DAR was unaffected — and unprotected. Zero test cases verified the contract before it went live.
+    </div>
+  </div>
+
+  <!-- Log -->
+  <div class="log-wrap" id="log">
+    <div class="log-empty">Run the pipeline to see the test log…</div>
+  </div>
+
+  <div class="explainer">
+    <h2>Why this matters</h2>
+    <div class="finding-list">
+      <div class="exp-item">
+        <div class="exp-num">1</div>
+        <div>
+          <h4>The coverage gate is a number that doesn't enforce itself</h4>
+          <p>Ginie defines a minimum of 5 submitMustFail cases. It generated 4. It flagged the shortfall. Then deployed. The gate exists as a check but carries no consequence — it's a linter with no CI attached.</p>
+        </div>
+      </div>
+      <div class="exp-item">
+        <div class="exp-num">2</div>
+        <div>
+          <h4>Tests that don't compile provide zero coverage</h4>
+          <p>The test scaffold failed to compile entirely. A compile failure means no test ran, no case was verified, no submitMustFail assertion was executed. The contract deployed with precisely zero test coverage despite the pipeline claiming otherwise.</p>
+        </div>
+      </div>
+      <div class="exp-item">
+        <div class="exp-num">3</div>
+        <div>
+          <h4>Three gates, three bypasses</h4>
+          <p>This is the third pipeline gate that logs a failure and deploys anyway — alongside the silent fallback and the audit HIGH findings. The pattern is consistent: sandbox policy treats every gate as advisory. Users are not told this upfront.</p>
+        </div>
+      </div>
+      <div class="exp-item">
+        <div class="exp-num">4</div>
+        <div>
+          <h4>Proposed fix</h4>
+          <p>Show test coverage as a metric on the results screen alongside Security / Compliance / Enterprise scores. A "Tests: 4/5 (scaffold failed to compile)" line on the dashboard would make the gap immediately visible without changing sandbox deploy behavior.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+const TEST_CASES = [
+  { name: 'buyer cannot access funds directly', status: 'pass' },
+  { name: 'seller cannot release funds without arbiter', status: 'pass' },
+  { name: 'arbiter cannot create escrow alone', status: 'pass' },
+  { name: 'amount must be positive', status: 'pass' },
+  { name: 'parties must be distinct — missing case', status: 'missing' },
+];
+
+const LOGS = [
+  [0,    'info', 'Drafting Daml-Script tests (≥ 5 submitMustFail cases)…'],
+  [800,  'ok',   'Test scaffold generated — 4 submitMustFail case(s)'],
+  [1200, 'warn', 'Coverage gate: minimum 5 required — 1 case short'],
+  [1600, 'warn', 'deploy continues; hand-author the missing cases before MainNet'],
+  [2000, 'info', 'Building test package against the production DAR…'],
+  [2800, 'err',  'error: Variable not in scope: submitMustFail (line 47)'],
+  [3200, 'err',  'error: Ambiguous module name DA.Assert (line 12)'],
+  [3600, 'err',  'Test scaffold did not compile (production DAR unaffected)'],
+  [4000, 'warn', 'Test scaffold did not compile — production DAR is unaffected and will still deploy'],
+  [4400, 'info', 'Sandbox policy: deploy proceeds. Review test coverage before MainNet.'],
+  [4800, 'ok',   'Submitting compiled DAR to Canton ledger…'],
+  [5400, 'ok',   'Contract deployed — 00bdf7bf5ffd93fb1ccc5bf0…'],
+  [5800, 'ok',   'Pipeline completed — contract deployed and verified'],
+];
+
+let running = false;
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function logLine(type, msg) {
+  const el = document.getElementById('log');
+  const now = new Date();
+  const ts = [now.getHours(), now.getMinutes(), now.getSeconds()].map(n => n.toString().padStart(2,'0')).join(':');
+  const cls = { ok: 'log-ok', warn: 'log-warn', err: 'log-err', info: 'log-info' }[type] || 'log-info';
+  const div = document.createElement('div');
+  div.className = 'log-line';
+  div.innerHTML = `<span class="log-ts">${ts}</span><span class="${cls}">${msg}</span>`;
+  el.appendChild(div);
+  el.scrollTop = el.scrollHeight;
+}
+
+async function runDemo() {
+  if (running) return;
+  running = true;
+  const btn = document.getElementById('run-btn');
+  btn.disabled = true;
+  btn.textContent = 'Running…';
+
+  // Reset
+  document.getElementById('log').innerHTML = '';
+  document.getElementById('test-list').innerHTML = '';
+  document.getElementById('count').textContent = '0';
+  document.getElementById('count').className = 'count';
+  document.getElementById('cov-wrap').classList.remove('visible');
+  document.getElementById('compile-fail').classList.remove('visible');
+  document.getElementById('deploy-anyway').classList.remove('visible');
+  document.getElementById('cov-fill').style.width = '0';
+
+  // Build test cases one by one
+  let passCount = 0;
+  for (let i = 0; i < TEST_CASES.length; i++) {
+    await sleep(i === 0 ? 500 : 350);
+    const tc = TEST_CASES[i];
+    const div = document.createElement('div');
+    div.className = `test-case ${tc.status}`;
+    div.id = `tc-${i}`;
+    const icon = tc.status === 'pass' ? '✓' : '○';
+    const nameClass = tc.status === 'pass' ? 'done' : '';
+    const statusLabel = tc.status === 'pass' ? '<span class="tc-status tc-pass">generated</span>' : '<span class="tc-status tc-missing">missing</span>';
+    div.innerHTML = `<span class="tc-icon">${icon}</span><span class="tc-name ${nameClass}">${tc.name}</span>${statusLabel}`;
+    document.getElementById('test-list').appendChild(div);
+    await sleep(30);
+    div.classList.add('visible');
+    if (tc.status === 'pass') {
+      passCount++;
+      const countEl = document.getElementById('count');
+      countEl.textContent = passCount;
+      countEl.className = passCount < 5 ? 'count fail' : 'count ok';
+    }
+  }
+
+  await sleep(400);
+
+  // Show coverage bar
+  document.getElementById('cov-wrap').classList.add('visible');
+  await sleep(200);
+  document.getElementById('cov-fill').style.width = '80%';
+
+  await sleep(800);
+
+  // Show compile failure
+  document.getElementById('compile-fail').classList.add('visible');
+  await sleep(600);
+
+  // Show deploy anyway
+  document.getElementById('deploy-anyway').classList.add('visible');
+  await sleep(400);
+
+  // Run logs
+  for (let i = 0; i < LOGS.length; i++) {
+    const delay = i === 0 ? 0 : LOGS[i][0] - LOGS[i-1][0];
+    await sleep(delay * 0.7);
+    logLine(LOGS[i][1], LOGS[i][2]);
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'Run again';
+  running = false;
+}
+</script>
+</body>
+</html>
